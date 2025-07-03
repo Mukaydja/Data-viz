@@ -24,16 +24,22 @@ def prepare_circular_image(img, size_px=200):
     output.paste(img, (0, 0), mask=mask)
     return output
 
-# --- Fonction pour insérer un saut de ligne dans les noms longs ---
+# --- Fonction pour faire un saut de ligne intelligent sur les noms de métriques ---
 def split_label(label, max_len=12):
     if len(label) <= max_len:
         return label
-    if " " in label[max_len:]:
-        idx = label.find(" ", max_len)
-        return label[:idx] + "\n" + label[idx+1:]
-    else:
-        mid = len(label) // 2
-        return label[:mid] + "\n" + label[mid:]
+    
+    # Cherche un espace avant max_len (de droite à gauche)
+    for i in range(max_len, 0, -1):
+        if label[i] == " ":
+            return label[:i] + "\n" + label[i+1:]
+    # Sinon cherche un espace après max_len (de gauche à droite)
+    for i in range(max_len, len(label)):
+        if label[i] == " ":
+            return label[:i] + "\n" + label[i+1:]
+    
+    # Pas d'espace proche, on ne coupe pas au milieu
+    return label
 
 # --- TITRE PERSONNALISÉ ---
 st.sidebar.markdown("🌓 **Apparence**")
@@ -98,13 +104,11 @@ for title, key in zip(group_titles, group_keys):
     st.subheader(title)
     cols = st.columns(3)
     for i, metric in enumerate(grouped_metrics[key]):
-        metric_name = cols[i % 3].text_input(f"{key}_metric_{i}", value=metric)
-        val = cols[i % 3].slider(f"{key}_val_{i}", 0.0, 100.0, 50.0, 1.0)
-        params.append(metric_name)
+        metric_name = cols[i % 3].text_input(f"{metric}", value=metric, key=f"{key}_metric_{i}")
+        val = cols[i % 3].slider(f"Valeur {i+1}", 0.0, 100.0, 50.0, 1.0, key=f"{key}_val_{i}")
+        # Appliquer saut de ligne intelligent sur le nom pour l'affichage
+        params.append(split_label(metric_name))
         values.append(val)
-
-# Ajout saut de ligne automatique dans noms trop longs
-params = [split_label(p) for p in params]
 
 # --- COULEURS SLICE ---
 slice_colors = (
