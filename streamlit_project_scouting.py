@@ -1,25 +1,60 @@
 import streamlit as st
 import matplotlib.pyplot as plt
-from PIL import Image
+from PIL import Image, ImageDraw
 from mplsoccer import PyPizza, add_image, FontManager
-import io
 from urllib.request import urlopen
+import io
 
 # Fonts
 font_normal = FontManager('https://raw.githubusercontent.com/googlefonts/roboto/main/src/hinted/Roboto-Regular.ttf')
-font_italic = FontManager('https://raw.githubusercontent.com/googlefonts/roboto/main/src/hinted/Roboto-Italic.ttf')
 font_bold = FontManager('https://github.com/google/fonts/raw/main/apache/robotoslab/RobotoSlab%5Bwght%5D.ttf')
 
 st.set_page_config(layout="wide")
-st.title("📊 Football Player Radar Generator")
 
-# ---- Sidebar : infos joueur ----
+# --- Fonction pour préparer image circulaire ---
+def prepare_circular_image(img, size_px=200):
+    img = img.convert("RGBA")
+    img.thumbnail((size_px, size_px), Image.LANCZOS)
+
+    mask = Image.new("L", img.size, 0)
+    draw = ImageDraw.Draw(mask)
+    draw.ellipse([(0, 0), img.size], fill=255)
+
+    output = Image.new("RGBA", img.size)
+    output.paste(img, (0, 0), mask=mask)
+    return output
+
+# --- TITRE PERSONNALISÉ ---
+st.sidebar.markdown("🌓 **Apparence**")
+theme_mode = st.sidebar.radio("Mode d'affichage", ["Clair", "Sombre"], index=1)
+
+# Thème
+if theme_mode == "Clair":
+    bg_color = "#FFFFFF"
+    line_color = "#000000"
+    text_default = "#000000"
+else:
+    bg_color = "#1E1E1E"
+    line_color = "#FFFFFF"
+    text_default = "#F2F2F2"
+
+# Couleurs personnalisables
+st.sidebar.markdown("🎨 **Couleurs radar**")
+group_titles = ["🎯 Attaque", "⚙️ Distribution", "🛡️ Défense"]
+group_keys = ["attaque", "distribution", "defense"]
+default_colors = {"attaque": "#009688", "distribution": "#FF5722", "defense": "#3F51B5"}
+group_colors = {k: st.sidebar.color_picker(f"{t} - Couleur", default_colors[k]) for k, t in zip(group_keys, group_titles)}
+text_color = st.sidebar.color_picker("📝 Couleur du texte radar", value=text_default)
+bg_color = st.sidebar.color_picker("🎆 Couleur de fond du radar", value=bg_color)
+
+# --- INFOS JOUEUR ---
+st.title("📊 Football Player Radar Generator")
 st.sidebar.header("🎯 Infos joueur")
 player_name = st.sidebar.text_input("Nom du joueur", "Frenkie de Jong")
 team = st.sidebar.text_input("Club", "FC Barcelona")
 season = st.sidebar.text_input("Saison", "2020-21")
 opponent = st.sidebar.text_input("Adversaire", "Real Madrid")
-uploaded_image = st.sidebar.file_uploader("Téléverser une photo", type=["jpg", "png"])
+uploaded_image = st.sidebar.file_uploader("📷 Photo du joueur", type=["jpg", "png"])
 
 if uploaded_image:
     player_img = Image.open(uploaded_image)
@@ -27,95 +62,51 @@ else:
     URL = "https://raw.githubusercontent.com/andrewRowlinson/mplsoccer-assets/main/fdj_cropped.png"
     player_img = Image.open(urlopen(URL))
 
-# ---- Initialisation des groupes ----
-group_titles = ["🎯 Attaque", "⚙️ Distribution", "🛡️ Défense"]
-group_keys = ["attaque", "distribution", "defense"]
+# Préparation image circulaire adaptée
+player_img_circular = prepare_circular_image(player_img, size_px=200)
 
-# Maintenant 6 métriques fixes par groupe (modifiable par utilisateur)
-default_metrics = {
+# --- MÉTRIQUES FIXES PAR GROUPE ---
+grouped_metrics = {
     "attaque": [
-        "Non-Penalty Goals", "npxG", "xA",
-        "Open Play Shot Creating Actions", "Penalty Area Entries", "Goals per 90"
+        "Non-Penalty Goals", "npxG", "xA", "Shot Creating Actions", "Touches in Box", "Penalty Area Entries"
     ],
     "distribution": [
-        "Touches per Turnover", "Progressive Passes", "Progressive Carries",
-        "Final 1/3 Passes", "Final 1/3 Carries", "Pass Completion %"
+        "Touches per Turnover", "Progressive Passes", "Progressive Carries", "Final 1/3 Passes", "Final 1/3 Carries", "Pass Completion %"
     ],
     "defense": [
-        "pAdj Pressure Regains", "pAdj Tackles Made", "pAdj Interceptions",
-        "Recoveries", "Aerial Win %", "Blocks"
+        "Pressure Regains", "Tackles Made", "Interceptions", "Recoveries", "Aerial Win %", "Blocks"
     ]
 }
 
-if "grouped_metrics" not in st.session_state:
-    st.session_state.grouped_metrics = default_metrics.copy()
-else:
-    # Si l'utilisateur a modifié la liste, on s'assure qu'il y a bien 6 par groupe, on complète ou coupe
-    for key in group_keys:
-        current = st.session_state.grouped_metrics.get(key, [])
-        if len(current) < 6:
-            # Complète avec les métriques par défaut pour atteindre 6
-            addition = [m for m in default_metrics[key] if m not in current]
-            st.session_state.grouped_metrics[key] = (current + addition)[:6]
-        else:
-            # Coupe à 6 si plus
-            st.session_state.grouped_metrics[key] = current[:6]
-
-# ---- Interface de saisie par groupe ----
-st.header("📈 Valeurs des métriques")
-values = []
+# --- SAISIE DES VALEURS ---
 params = []
+values = []
 
+st.header("📈 Valeurs des métriques")
 for title, key in zip(group_titles, group_keys):
     st.subheader(title)
-
-    metrics = st.session_state.grouped_metrics.get(key, [])
-    cols = st.columns(6)  # 6 métriques fixes
-
-    for i, metric in enumerate(metrics):
-        new_name = cols[i].text_input(f"{title} Métrique {i+1}", value=metric, key=f"edit_{key}_{i}")
-        if new_name != metric:
-            st.session_state.grouped_metrics[key][i] = new_name
-        params.append(st.session_state.grouped_metrics[key][i])
-
-# Maintenant on demande les valeurs, 6 par groupe (ordre des params respecté)
-values = []
-for key in group_keys:
-    metrics = st.session_state.grouped_metrics[key]
-    cols_val = st.columns(6)
-    for i, metric in enumerate(metrics):
-        val = cols_val[i].number_input(
-            f"Valeur pour {metric}",
-            min_value=0.0,
-            max_value=100.0,
-            value=50.0,
-            step=1.0,
-            format="%.1f",
-            key=f"{key}_val_{i}"
-        )
+    cols = st.columns(3)
+    for i, metric in enumerate(grouped_metrics[key]):
+        metric_name = cols[i % 3].text_input(f"{metric}", value=metric, key=f"{key}_metric_{i}")
+        val = cols[i % 3].slider(f"Valeur {i+1}", 0.0, 100.0, 50.0, 1.0, key=f"{key}_val_{i}")
+        params.append(metric_name)
         values.append(val)
 
-if len(params) == 0:
-    st.warning("Ajoute au moins une métrique pour générer le radar.")
-    st.stop()
+# --- COULEURS SLICE ---
+slice_colors = (
+    [group_colors["attaque"]] * 6 +
+    [group_colors["distribution"]] * 6 +
+    [group_colors["defense"]] * 6
+)
+text_colors = [text_color] * len(params)
 
-# ---- Couleurs dynamiques par groupe ----
-def get_colors(n):
-    c1 = ["#009688"] * 6  # 6 verts
-    c2 = ["#FF5722"] * 6  # 6 orange
-    c3 = ["#3F51B5"] * 6  # 6 bleu
-    return (c1 + c2 + c3)[:n]
-
-slice_colors = get_colors(len(params))
-text_colors = ["#FFFFFF"] * len(params)
-
-# ---- Génération radar ----
+# --- GÉNÉRATION RADAR ---
 baker = PyPizza(
     params=params,
-    background_color="#1E1E1E",
-    straight_line_color="#FFFFFF",
+    background_color=bg_color,
+    straight_line_color=line_color,
     straight_line_lw=1,
-    last_circle_color="#FFFFFF",
+    last_circle_color=line_color,
     last_circle_lw=1,
     other_circle_lw=0,
     inner_circle_size=20
@@ -130,7 +121,7 @@ fig, ax = baker.make_pizza(
     value_bck_colors=slice_colors,
     blank_alpha=0.4,
     kwargs_slices=dict(edgecolor="#000000", zorder=2, linewidth=1),
-    kwargs_params=dict(color="#F2F2F2", fontsize=11, fontproperties=font_normal.prop, va="center"),
+    kwargs_params=dict(color=text_color, fontsize=11, fontproperties=font_normal.prop, va="center"),
     kwargs_values=dict(
         color="#000000", fontsize=11, fontproperties=font_normal.prop, zorder=3,
         bbox=dict(edgecolor="#000000", facecolor="#FFFFFF", boxstyle="round,pad=0.2", lw=1)
@@ -138,51 +129,36 @@ fig, ax = baker.make_pizza(
 )
 
 fig.subplots_adjust(top=0.85)
+fig.text(0.515, 0.97, f"{player_name} - {team}", size=16, ha="center", fontproperties=font_bold.prop, color=text_color)
+fig.text(0.515, 0.94, f"Statistiques Radar | Saison {season} | Vs: {opponent}", size=13, ha="center", fontproperties=font_bold.prop, color="#888888")
 
-# Titres et texte en haut
-fig.text(0.515, 0.97, f"{player_name} - {team}", size=16,
-         ha="center", fontproperties=font_bold.prop, color="#FFFFFF")
-fig.text(0.515, 0.940, f"Statistique Générale | Saison {season} | Vs: {opponent}",
-         size=13, ha="center", fontproperties=font_bold.prop, color="#AAAAAA")
-
-# Catégories et légendes couleurs plus bas
-fig.text(0.320, 0.88, "Attaque", size=12,
-         fontproperties=font_bold.prop, color="#009688")
-fig.text(0.475, 0.88, "Distribution", size=12,
-         fontproperties=font_bold.prop, color="#FF5722")
-fig.text(0.64, 0.88, "Défense", size=12,
-         fontproperties=font_bold.prop, color="#3F51B5")
-
-x_positions = [0.28, 0.44, 0.60]
-colors_for_rect = ["#009688", "#FF5722", "#3F51B5"]
-for x, c in zip(x_positions, colors_for_rect):
+# Légendes de groupes
+group_names = ["Attaque", "Distribution", "Défense"]
+positions = [0.30, 0.475, 0.64]
+for gname, pos, gkey in zip(group_names, positions, group_keys):
+    fig.text(pos, 0.88, gname, size=12, fontproperties=font_bold.prop, color=group_colors[gkey])
     fig.patches.append(
-        plt.Rectangle((x, 0.88), 0.030, 0.02, fill=True,
-                      color=c, transform=fig.transFigure, figure=fig)
+        plt.Rectangle((pos - 0.03, 0.88), 0.025, 0.02, fill=True,
+                      color=group_colors[gkey], transform=fig.transFigure, figure=fig)
     )
 
-# Image joueur plus bas
-add_image(player_img, fig, left=0.448, bottom=0.416, width=0.13, height=0.127)
+# Ajout de l'image circulaire du joueur dans le radar
+add_image(player_img_circular, fig, left=0.448, bottom=0.416, width=0.13, height=0.127)
 
-# Affichage Streamlit
+# --- AFFICHAGE ---
 st.pyplot(fig)
 
-# Export JPG uniquement
-jpg_buf = io.BytesIO()
-fig.savefig(jpg_buf, format="jpg", dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
-jpg_buf.seek(0)
-st.download_button(
-    "📥 Télécharger le radar (JPG)",
-    data=jpg_buf,
-    file_name=f"{player_name}_radar.jpg",
-    mime="image/jpeg"
-)
+# --- TÉLÉCHARGEMENT PNG ---
+png_buf = io.BytesIO()
+fig.savefig(png_buf, format="png", dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
+png_buf.seek(0)
+st.download_button("📥 Télécharger le radar (PNG)", data=png_buf, file_name=f"{player_name}_radar.png", mime="image/png")
 
-# Affichage du créateur en bas à gauche
+# --- CRÉDIT ---
 st.markdown(
     """
-    <div style='position: fixed; bottom: 10px; left: 10px; color: #AAAAAA; font-size: 12px;'>
-        Créé par <strong>Abbes Amine</strong>
+    <div style='text-align: center; margin-top: 30px; font-size: 13px; color: gray;'>
+        👨‍💻 Créé par <strong>Abbes Amine</strong>
     </div>
     """,
     unsafe_allow_html=True
