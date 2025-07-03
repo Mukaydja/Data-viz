@@ -137,7 +137,7 @@ fig, ax = baker.make_pizza(
 # Titres et texte
 fig.text(0.515, 0.975, f"{player_name} - {team}", size=16,
          ha="center", fontproperties=font_bold.prop, color="#FFFFFF")
-fig.text(0.515, 0.955, f"Percentile Rank vs Top-Five League Midfielders | Season {season}",
+fig.text(0.515, 0.955, f"Statistique Générale | Saison {season}",
          size=13, ha="center", fontproperties=font_bold.prop, color="#AAAAAA")
 fig.text(0.99, 0.02, "Amine Abbes",
          size=9, fontproperties=font_italic.prop, color="#AAAAAA", ha="right")
