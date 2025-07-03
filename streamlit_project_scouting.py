@@ -20,6 +20,7 @@ st.sidebar.header("🎯 Infos joueur")
 player_name = st.sidebar.text_input("Nom du joueur", "Frenkie de Jong")
 team = st.sidebar.text_input("Club", "FC Barcelona")
 season = st.sidebar.text_input("Saison", "2020-21")
+opponent = st.sidebar.text_input("Adversaire", "Real Madrid")
 uploaded_image = st.sidebar.file_uploader("Téléverser une photo", type=["jpg", "png"])
 
 if uploaded_image:
@@ -33,9 +34,9 @@ group_titles = ["🎯 Attaque", "⚙️ Distribution", "🛡️ Défense"]
 group_keys = ["attaque", "distribution", "defense"]
 
 default_metrics = {
-    "attacking": ["Non-Penalty Goals", "npxG", "xA", "Open Play Shot Creating Actions", "Penalty Area Entries"],
-    "possession": ["Touches per Turnover", "Progressive Passes", "Progressive Carries", "Final 1/3 Passes", "Final 1/3 Carries"],
-    "defending": ["pAdj Pressure Regains", "pAdj Tackles Made", "pAdj Interceptions", "Recoveries", "Aerial Win %"]
+    "attaque": ["Non-Penalty Goals", "npxG", "xA", "Open Play Shot Creating Actions", "Penalty Area Entries"],
+    "distribution": ["Touches per Turnover", "Progressive Passes", "Progressive Carries", "Final 1/3 Passes", "Final 1/3 Carries"],
+    "defense": ["pAdj Pressure Regains", "pAdj Tackles Made", "pAdj Interceptions", "Recoveries", "Aerial Win %"]
 }
 
 if "grouped_metrics" not in st.session_state:
@@ -49,18 +50,15 @@ params = []
 for title, key in zip(group_titles, group_keys):
     st.subheader(title)
 
-    # Affichage + suppression possible des métriques dans ce groupe
     metrics_to_remove = None
-    metrics_copy = st.session_state.grouped_metrics[key].copy()
+    metrics_copy = st.session_state.grouped_metrics.get(key, []).copy()
     cols_del = st.columns(len(metrics_copy)*2 if metrics_copy else 1)
 
     for i, metric in enumerate(metrics_copy):
-        # Affiche la métrique avec un champ éditable
         new_name = cols_del[2*i].text_input(f"{title} Métrique {i+1}", value=metric, key=f"edit_{key}_{i}")
         if new_name != metric:
             st.session_state.grouped_metrics[key][i] = new_name
         
-        # Bouton suppression (unique, on mémorise l'indice)
         if cols_del[2*i+1].button("❌", key=f"del_{key}_{i}"):
             metrics_to_remove = i
 
@@ -68,7 +66,6 @@ for title, key in zip(group_titles, group_keys):
         st.session_state.grouped_metrics[key].pop(metrics_to_remove)
         st.experimental_rerun()
 
-    # Inputs valeurs métriques
     cols_val = st.columns(3)
     for i, metric in enumerate(st.session_state.grouped_metrics[key]):
         val = cols_val[i % 3].number_input(
@@ -83,7 +80,6 @@ for title, key in zip(group_titles, group_keys):
         values.append(val)
         params.append(metric)
 
-    # Ajouter une nouvelle métrique à ce groupe
     new_metric = st.text_input(f"Ajouter une métrique à {title}", key=f"add_{key}")
     if st.button(f"➕ Ajouter à {title}", key=f"btn_add_{key}"):
         nm = new_metric.strip()
@@ -120,7 +116,7 @@ baker = PyPizza(
 
 fig, ax = baker.make_pizza(
     values,
-    figsize=(8, 8.5),
+    figsize=(8, 10),  # plus haut pour espace
     color_blank_space="same",
     slice_colors=slice_colors,
     value_colors=text_colors,
@@ -134,42 +130,53 @@ fig, ax = baker.make_pizza(
     )
 )
 
-# Titres et texte
-fig.text(0.515, 0.975, f"{player_name} - {team}", size=16,
+fig.subplots_adjust(top=0.85)  # décale le haut pour espace
+
+# Titres et texte en haut
+fig.text(0.515, 0.97, f"{player_name} - {team}", size=16,
          ha="center", fontproperties=font_bold.prop, color="#FFFFFF")
-fig.text(0.515, 0.955, f"Statistique Générale | Saison {season}",
+fig.text(0.515, 0.940, f"Statistique Générale | Saison {season} | Vs: {opponent}",
          size=13, ha="center", fontproperties=font_bold.prop, color="#AAAAAA")
 fig.text(0.99, 0.02, "Amine Abbes",
          size=9, fontproperties=font_italic.prop, color="#AAAAAA", ha="right")
-fig.text(0.34, 0.93, "Attacking        Possession       Defending", size=14,
-         fontproperties=font_bold.prop, color="#F2F2F2")
 
-# Légendes couleurs
-x_positions = [0.31, 0.462, 0.632]
+# Catégories et légendes couleurs plus bas pour éviter chevauchement
+fig.text(0.320, 0.88, "Attaque", size=12,
+         fontproperties=font_bold.prop, color="#009688")
+fig.text(0.475, 0.88, "Distribution", size=12,
+         fontproperties=font_bold.prop, color="#FF5722")
+fig.text(0.64, 0.88, "Défense", size=12,
+         fontproperties=font_bold.prop, color="#3F51B5")
+
+x_positions = [0.28, 0.44, 0.60]
 colors_for_rect = ["#009688", "#FF5722", "#3F51B5"]
 for x, c in zip(x_positions, colors_for_rect):
-    fig.patches.append(plt.Rectangle((x, 0.9225), 0.025, 0.021, fill=True, color=c, transform=fig.transFigure, figure=fig))
+    fig.patches.append(
+        plt.Rectangle((x, 0.88), 0.030, 0.02, fill=True,
+                      color=c, transform=fig.transFigure, figure=fig)
+    )
 
-# Ajouter image joueur
-add_image(player_img, fig, left=0.4478, bottom=0.4315, width=0.13, height=0.127)
+# Image joueur plus bas
+add_image(player_img, fig, left=0.448, bottom=0.416, width=0.13, height=0.127)
 
 # Affichage Streamlit
 st.pyplot(fig)
 
-# --- Export PNG ---
+# Export PNG
 png_buf = io.BytesIO()
 fig.savefig(png_buf, format="png", dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
 png_buf.seek(0)
 st.download_button("📥 Télécharger le radar (PNG)", data=png_buf, file_name=f"{player_name}_radar.png", mime="image/png")
 
-# --- Export PDF ---
+# Export PDF
 fig.savefig("temp_radar.png", dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
 
 pdf = FPDF()
 pdf.add_page()
 pdf.set_font("Arial", "B", 16)
 pdf.cell(0, 10, f"{player_name} - {team}", ln=True, align="C")
-pdf.image("temp_radar.png", x=10, y=30, w=190)
+pdf.cell(0, 10, f"Saison {season} | Adversaire: {opponent}", ln=True, align="C")
+pdf.image("temp_radar.png", x=10, y=40, w=190)
 
 pdf_buf = io.BytesIO()
 pdf.output("temp_radar.pdf")
@@ -185,3 +192,13 @@ if os.path.exists("temp_radar.png"):
     os.remove("temp_radar.png")
 if os.path.exists("temp_radar.pdf"):
     os.remove("temp_radar.pdf")
+
+# Affichage du créateur en bas à gauche
+st.markdown(
+    """
+    <div style='position: fixed; bottom: 10px; left: 10px; color: #AAAAAA; font-size: 12px;'>
+        Créé par <strong>Abbes Amine</strong>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
