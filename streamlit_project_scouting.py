@@ -4,7 +4,6 @@ from PIL import Image
 from mplsoccer import PyPizza, add_image, FontManager
 import io
 from urllib.request import urlopen
-import os
 
 # Fonts
 font_normal = FontManager('https://raw.githubusercontent.com/googlefonts/roboto/main/src/hinted/Roboto-Regular.ttf')
@@ -32,14 +31,35 @@ else:
 group_titles = ["🎯 Attaque", "⚙️ Distribution", "🛡️ Défense"]
 group_keys = ["attaque", "distribution", "defense"]
 
+# Maintenant 6 métriques fixes par groupe (modifiable par utilisateur)
 default_metrics = {
-    "attaque": ["Non-Penalty Goals", "npxG", "xA", "Open Play Shot Creating Actions", "Penalty Area Entries"],
-    "distribution": ["Touches per Turnover", "Progressive Passes", "Progressive Carries", "Final 1/3 Passes", "Final 1/3 Carries"],
-    "defense": ["pAdj Pressure Regains", "pAdj Tackles Made", "pAdj Interceptions", "Recoveries", "Aerial Win %"]
+    "attaque": [
+        "Non-Penalty Goals", "npxG", "xA",
+        "Open Play Shot Creating Actions", "Penalty Area Entries", "Goals per 90"
+    ],
+    "distribution": [
+        "Touches per Turnover", "Progressive Passes", "Progressive Carries",
+        "Final 1/3 Passes", "Final 1/3 Carries", "Pass Completion %"
+    ],
+    "defense": [
+        "pAdj Pressure Regains", "pAdj Tackles Made", "pAdj Interceptions",
+        "Recoveries", "Aerial Win %", "Blocks"
+    ]
 }
 
 if "grouped_metrics" not in st.session_state:
     st.session_state.grouped_metrics = default_metrics.copy()
+else:
+    # Si l'utilisateur a modifié la liste, on s'assure qu'il y a bien 6 par groupe, on complète ou coupe
+    for key in group_keys:
+        current = st.session_state.grouped_metrics.get(key, [])
+        if len(current) < 6:
+            # Complète avec les métriques par défaut pour atteindre 6
+            addition = [m for m in default_metrics[key] if m not in current]
+            st.session_state.grouped_metrics[key] = (current + addition)[:6]
+        else:
+            # Coupe à 6 si plus
+            st.session_state.grouped_metrics[key] = current[:6]
 
 # ---- Interface de saisie par groupe ----
 st.header("📈 Valeurs des métriques")
@@ -49,24 +69,23 @@ params = []
 for title, key in zip(group_titles, group_keys):
     st.subheader(title)
 
-    metrics_copy = st.session_state.grouped_metrics.get(key, []).copy()
-    cols_del = st.columns(len(metrics_copy)*2 if metrics_copy else 1)
+    metrics = st.session_state.grouped_metrics.get(key, [])
+    cols = st.columns(6)  # 6 métriques fixes
 
-    # Edition et suppression
-    for i, metric in enumerate(metrics_copy):
-        new_name = cols_del[2*i].text_input(f"{title} Métrique {i+1}", value=metric, key=f"edit_{key}_{i}")
+    for i, metric in enumerate(metrics):
+        new_name = cols[i].text_input(f"{title} Métrique {i+1}", value=metric, key=f"edit_{key}_{i}")
         if new_name != metric:
             st.session_state.grouped_metrics[key][i] = new_name
+        params.append(st.session_state.grouped_metrics[key][i])
 
-        if cols_del[2*i+1].button("❌", key=f"del_{key}_{i}"):
-            st.session_state.grouped_metrics[key].pop(i)
-            st.experimental_rerun()  # relance après suppression
-
-    # Valeurs associées
-    cols_val = st.columns(3)
-    for i, metric in enumerate(st.session_state.grouped_metrics[key]):
-        val = cols_val[i % 3].number_input(
-            metric,
+# Maintenant on demande les valeurs, 6 par groupe (ordre des params respecté)
+values = []
+for key in group_keys:
+    metrics = st.session_state.grouped_metrics[key]
+    cols_val = st.columns(6)
+    for i, metric in enumerate(metrics):
+        val = cols_val[i].number_input(
+            f"Valeur pour {metric}",
             min_value=0.0,
             max_value=100.0,
             value=50.0,
@@ -75,16 +94,6 @@ for title, key in zip(group_titles, group_keys):
             key=f"{key}_val_{i}"
         )
         values.append(val)
-        params.append(metric)
-
-    # Ajout de nouvelle métrique
-    new_metric = st.text_input(f"Ajouter une métrique à {title}", key=f"add_{key}")
-    if st.button(f"➕ Ajouter à {title}", key=f"btn_add_{key}"):
-        nm = new_metric.strip()
-        all_metrics = sum(st.session_state.grouped_metrics.values(), [])
-        if nm and nm not in all_metrics:
-            st.session_state.grouped_metrics[key].append(nm)
-            st.experimental_rerun()  # relance après ajout
 
 if len(params) == 0:
     st.warning("Ajoute au moins une métrique pour générer le radar.")
@@ -92,9 +101,9 @@ if len(params) == 0:
 
 # ---- Couleurs dynamiques par groupe ----
 def get_colors(n):
-    c1 = ["#009688"] * min(5, n)
-    c2 = ["#FF5722"] * min(5, max(0, n-5))
-    c3 = ["#3F51B5"] * max(0, n-10)
+    c1 = ["#009688"] * 6  # 6 verts
+    c2 = ["#FF5722"] * 6  # 6 orange
+    c3 = ["#3F51B5"] * 6  # 6 bleu
     return (c1 + c2 + c3)[:n]
 
 slice_colors = get_colors(len(params))
@@ -178,4 +187,3 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
