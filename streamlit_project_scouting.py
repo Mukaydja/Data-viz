@@ -24,6 +24,17 @@ def prepare_circular_image(img, size_px=200):
     output.paste(img, (0, 0), mask=mask)
     return output
 
+# --- Fonction pour insérer un saut de ligne dans les noms longs ---
+def split_label(label, max_len=12):
+    if len(label) <= max_len:
+        return label
+    if " " in label[max_len:]:
+        idx = label.find(" ", max_len)
+        return label[:idx] + "\n" + label[idx+1:]
+    else:
+        mid = len(label) // 2
+        return label[:mid] + "\n" + label[mid:]
+
 # --- TITRE PERSONNALISÉ ---
 st.sidebar.markdown("🌓 **Apparence**")
 theme_mode = st.sidebar.radio("Mode d'affichage", ["Clair", "Sombre"], index=1)
@@ -83,17 +94,17 @@ params = []
 values = []
 
 st.header("📈 Valeurs des métriques")
-
 for title, key in zip(group_titles, group_keys):
     st.subheader(title)
     cols = st.columns(3)
-    metrics = grouped_metrics[key]
-    for i, metric in enumerate(metrics):
-        col = cols[i % 3]
-        metric_name = col.text_input(f"{key}_metric_{i}", value=metric)
-        val = col.slider(f"{key}_val_{i}", 0.0, 100.0, 50.0, 1.0)
+    for i, metric in enumerate(grouped_metrics[key]):
+        metric_name = cols[i % 3].text_input(f"{key}_metric_{i}", value=metric)
+        val = cols[i % 3].slider(f"{key}_val_{i}", 0.0, 100.0, 50.0, 1.0)
         params.append(metric_name)
         values.append(val)
+
+# Ajout saut de ligne automatique dans noms trop longs
+params = [split_label(p) for p in params]
 
 # --- COULEURS SLICE ---
 slice_colors = (
