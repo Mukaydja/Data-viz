@@ -24,6 +24,25 @@ def prepare_circular_image(img, size_px=200):
     output.paste(img, (0, 0), mask=mask)
     return output
 
+# --- Fonction pour faire un saut de ligne intelligent sur les labels ---
+def smart_wrap_label(label, max_len=15):
+    words = label.split()
+    lines = []
+    current_line = ""
+    for word in words:
+        # +1 pour l'espace
+        if len(current_line) + len(word) + (1 if current_line else 0) <= max_len:
+            if current_line != "":
+                current_line += " "
+            current_line += word
+        else:
+            if current_line:
+                lines.append(current_line)
+            current_line = word
+    if current_line:
+        lines.append(current_line)
+    return "\n".join(lines)
+
 # --- SIDEBAR : Mode affichage ---
 mode_display = st.sidebar.radio("Mode affichage", ["Desktop", "Mobile"], index=0, key="mode_display")
 
@@ -103,17 +122,20 @@ for title, key in zip(group_titles, group_keys):
         params.append(metric_name)
         values.append(val)
 
+# --- Appliquer saut de ligne intelligent ---
+params_wrapped = [smart_wrap_label(param, max_len=15) for param in params]
+
 # --- COULEURS ---
 slice_colors = (
     [group_colors["attaque"]] * 6 +
     [group_colors["distribution"]] * 6 +
     [group_colors["defense"]] * 6
 )
-text_colors = [text_color] * len(params)
+text_colors = [text_color] * len(params_wrapped)
 
 # --- GÉNÉRATION RADAR ---
 baker = PyPizza(
-    params=params,
+    params=params_wrapped,
     background_color=bg_color,
     straight_line_color=line_color,
     straight_line_lw=1,
