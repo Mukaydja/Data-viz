@@ -1,5 +1,5 @@
-streamlit==1.24.1
-matplotlib==3.7.1
-pillow==10.0.0
-mplsoccer==1.1.5
-fpdf==1.7.2
+streamlit
+matplotlib
+pillow
+mplsoccer
+fpdf
