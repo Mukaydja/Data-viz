@@ -83,12 +83,15 @@ params = []
 values = []
 
 st.header("📈 Valeurs des métriques")
+
 for title, key in zip(group_titles, group_keys):
     st.subheader(title)
     cols = st.columns(3)
-    for i, metric in enumerate(grouped_metrics[key]):
-        metric_name = cols[i % 3].text_input(f"{metric}", value=metric, key=f"{key}_metric_{i}")
-        val = cols[i % 3].slider(f"Valeur {i+1}", 0.0, 100.0, 50.0, 1.0, key=f"{key}_val_{i}")
+    metrics = grouped_metrics[key]
+    for i, metric in enumerate(metrics):
+        col = cols[i % 3]
+        metric_name = col.text_input(f"{key}_metric_{i}", value=metric)
+        val = col.slider(f"{key}_val_{i}", 0.0, 100.0, 50.0, 1.0)
         params.append(metric_name)
         values.append(val)
 
