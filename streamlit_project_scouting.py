@@ -42,6 +42,11 @@ default_metrics = {
 if "grouped_metrics" not in st.session_state:
     st.session_state.grouped_metrics = default_metrics.copy()
 
+if "action_to_perform" not in st.session_state:
+    st.session_state.action_to_perform = None
+if "action_params" not in st.session_state:
+    st.session_state.action_params = None
+
 # ---- Interface de saisie par groupe ----
 st.header("📈 Valeurs des métriques")
 values = []
@@ -51,8 +56,6 @@ for title, key in zip(group_titles, group_keys):
     st.subheader(title)
 
     metrics_copy = list(st.session_state.grouped_metrics.get(key, []))
-    metrics_to_remove = None
-
     cols_del = st.columns(len(metrics_copy)*2 if metrics_copy else 1)
 
     for i, metric in enumerate(metrics_copy):
@@ -61,18 +64,41 @@ for title, key in zip(group_titles, group_keys):
             st.session_state.grouped_metrics[key][i] = new_name
 
         if cols_del[2*i+1].button("❌", key=f"del_{key}_{i}"):
-            metrics_to_remove = i
-            break  # On stoppe la boucle pour ne pas supprimer plusieurs métriques en même temps
+            st.session_state.action_to_perform = "delete_metric"
+            st.session_state.action_params = {"key": key, "index": i}
 
-    if metrics_to_remove is not None:
-        st.session_state.grouped_metrics[key].pop(metrics_to_remove)
-        st.experimental_rerun()
-        st.stop()
+    new_metric = st.text_input(f"Ajouter une métrique à {title}", key=f"add_{key}")
+    if st.button(f"➕ Ajouter à {title}", key=f"btn_add_{key}"):
+        nm = new_metric.strip()
+        all_metrics = sum(st.session_state.grouped_metrics.values(), [])
+        if nm and nm not in all_metrics:
+            st.session_state.action_to_perform = "add_metric"
+            st.session_state.action_params = {"key": key, "metric": nm}
 
-    cols_val = st.columns(3)
-    for i, metric in enumerate(st.session_state.grouped_metrics[key]):
-        val = cols_val[i % 3].number_input(
-            metric,
+# Exécution des actions (ajout ou suppression)
+if st.session_state.action_to_perform == "delete_metric":
+    key = st.session_state.action_params["key"]
+    index = st.session_state.action_params["index"]
+    st.session_state.grouped_metrics[key].pop(index)
+    st.session_state.action_to_perform = None
+    st.session_state.action_params = None
+    st.experimental_rerun()
+    st.stop()
+
+if st.session_state.action_to_perform == "add_metric":
+    key = st.session_state.action_params["key"]
+    metric = st.session_state.action_params["metric"]
+    st.session_state.grouped_metrics[key].append(metric)
+    st.session_state.action_to_perform = None
+    st.session_state.action_params = None
+    st.experimental_rerun()
+    st.stop()
+
+# Collecte des valeurs pour toutes les métriques
+for key in group_keys:
+    for i, metric in enumerate(st.session_state.grouped_metrics.get(key, [])):
+        val = st.number_input(
+            f"{metric} ({key})",
             min_value=0.0,
             max_value=100.0,
             value=50.0,
@@ -82,15 +108,6 @@ for title, key in zip(group_titles, group_keys):
         )
         values.append(val)
         params.append(metric)
-
-    new_metric = st.text_input(f"Ajouter une métrique à {title}", key=f"add_{key}")
-    if st.button(f"➕ Ajouter à {title}", key=f"btn_add_{key}"):
-        nm = new_metric.strip()
-        all_metrics = sum(st.session_state.grouped_metrics.values(), [])
-        if nm and nm not in all_metrics:
-            st.session_state.grouped_metrics[key].append(nm)
-            st.experimental_rerun()
-            st.stop()
 
 if len(params) == 0:
     st.warning("Ajoute au moins une métrique pour générer le radar.")
@@ -120,7 +137,7 @@ baker = PyPizza(
 
 fig, ax = baker.make_pizza(
     values,
-    figsize=(8, 10),  # plus haut pour espace
+    figsize=(8, 10),
     color_blank_space="same",
     slice_colors=slice_colors,
     value_colors=text_colors,
@@ -134,7 +151,7 @@ fig, ax = baker.make_pizza(
     )
 )
 
-fig.subplots_adjust(top=0.85)  # décale le haut pour espace
+fig.subplots_adjust(top=0.85)
 
 # Titres et texte en haut
 fig.text(0.515, 0.97, f"{player_name} - {team}", size=16,
@@ -142,7 +159,7 @@ fig.text(0.515, 0.97, f"{player_name} - {team}", size=16,
 fig.text(0.515, 0.940, f"Statistique Générale | Saison {season} | Vs: {opponent}",
          size=13, ha="center", fontproperties=font_bold.prop, color="#AAAAAA")
 
-# Catégories et légendes couleurs plus bas pour éviter chevauchement
+# Catégories couleurs
 fig.text(0.320, 0.88, "Attaque", size=12,
          fontproperties=font_bold.prop, color="#009688")
 fig.text(0.475, 0.88, "Distribution", size=12,
@@ -158,7 +175,7 @@ for x, c in zip(x_positions, colors_for_rect):
                       color=c, transform=fig.transFigure, figure=fig)
     )
 
-# Image joueur plus bas
+# Image joueur
 add_image(player_img, fig, left=0.448, bottom=0.416, width=0.13, height=0.127)
 
 # Affichage Streamlit
