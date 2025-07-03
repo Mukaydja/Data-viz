@@ -48,10 +48,30 @@ params = []
 
 for title, key in zip(group_titles, group_keys):
     st.subheader(title)
-    new_metrics = []
-    cols = st.columns(3)
+
+    # Affichage + suppression possible des métriques dans ce groupe
+    metrics_to_remove = None
+    metrics_copy = st.session_state.grouped_metrics[key].copy()
+    cols_del = st.columns(len(metrics_copy)*2 if metrics_copy else 1)
+
+    for i, metric in enumerate(metrics_copy):
+        # Affiche la métrique avec un champ éditable
+        new_name = cols_del[2*i].text_input(f"{title} Métrique {i+1}", value=metric, key=f"edit_{key}_{i}")
+        if new_name != metric:
+            st.session_state.grouped_metrics[key][i] = new_name
+        
+        # Bouton suppression (unique, on mémorise l'indice)
+        if cols_del[2*i+1].button("❌", key=f"del_{key}_{i}"):
+            metrics_to_remove = i
+
+    if metrics_to_remove is not None:
+        st.session_state.grouped_metrics[key].pop(metrics_to_remove)
+        st.experimental_rerun()
+
+    # Inputs valeurs métriques
+    cols_val = st.columns(3)
     for i, metric in enumerate(st.session_state.grouped_metrics[key]):
-        val = cols[i % 3].number_input(
+        val = cols_val[i % 3].number_input(
             metric,
             min_value=0.0,
             max_value=100.0,
@@ -61,14 +81,14 @@ for title, key in zip(group_titles, group_keys):
             key=f"{key}_val_{i}"
         )
         values.append(val)
-        new_metrics.append(metric)
-    params.extend(new_metrics)
+        params.append(metric)
 
     # Ajouter une nouvelle métrique à ce groupe
     new_metric = st.text_input(f"Ajouter une métrique à {title}", key=f"add_{key}")
     if st.button(f"➕ Ajouter à {title}", key=f"btn_add_{key}"):
         nm = new_metric.strip()
-        if nm and nm not in sum(st.session_state.grouped_metrics.values(), []):
+        all_metrics = sum(st.session_state.grouped_metrics.values(), [])
+        if nm and nm not in all_metrics:
             st.session_state.grouped_metrics[key].append(nm)
             st.experimental_rerun()
 
@@ -143,21 +163,27 @@ png_buf.seek(0)
 st.download_button("📥 Télécharger le radar (PNG)", data=png_buf, file_name=f"{player_name}_radar.png", mime="image/png")
 
 # --- Export PDF ---
+# Sauvegarde temporaire image radar
 fig.savefig("temp_radar.png", dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
+
 pdf = FPDF()
 pdf.add_page()
 pdf.set_font("Arial", "B", 16)
 pdf.cell(0, 10, f"{player_name} - {team}", ln=True, align="C")
 pdf.image("temp_radar.png", x=10, y=30, w=190)
+
 pdf_buf = io.BytesIO()
 pdf.output("temp_radar.pdf")
+
 with open("temp_radar.pdf", "rb") as f:
     pdf_buf.write(f.read())
 pdf_buf.seek(0)
+
 st.download_button("📄 Télécharger le radar (PDF)", data=pdf_buf, file_name=f"{player_name}_radar.pdf", mime="application/pdf")
 
-# Nettoyage fichier temporaire
+# Nettoyage fichiers temporaires
 if os.path.exists("temp_radar.png"):
     os.remove("temp_radar.png")
 if os.path.exists("temp_radar.pdf"):
     os.remove("temp_radar.pdf")
+
