@@ -30,7 +30,7 @@ else:
 
 # ---- Initialisation des groupes ----
 group_titles = ["🎯 Attaque", "⚙️ Distribution", "🛡️ Défense"]
-group_keys = ["attacking", "possession", "defending"]
+group_keys = ["Attaque", "Distribution", "Defense"]
 
 default_metrics = {
     "attacking": ["Non-Penalty Goals", "npxG", "xA", "Open Play Shot Creating Actions", "Penalty Area Entries"],
