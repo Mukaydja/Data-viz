@@ -163,7 +163,6 @@ png_buf.seek(0)
 st.download_button("📥 Télécharger le radar (PNG)", data=png_buf, file_name=f"{player_name}_radar.png", mime="image/png")
 
 # --- Export PDF ---
-# Sauvegarde temporaire image radar
 fig.savefig("temp_radar.png", dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
 
 pdf = FPDF()
@@ -186,4 +185,3 @@ if os.path.exists("temp_radar.png"):
     os.remove("temp_radar.png")
 if os.path.exists("temp_radar.pdf"):
     os.remove("temp_radar.pdf")
-
