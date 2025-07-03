@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from mplsoccer import PyPizza, add_image, FontManager
 import io
-from fpdf import FPDF
 from urllib.request import urlopen
 import os
 
@@ -159,36 +158,16 @@ add_image(player_img, fig, left=0.448, bottom=0.416, width=0.13, height=0.127)
 # Affichage Streamlit
 st.pyplot(fig)
 
-# Export PNG
-png_buf = io.BytesIO()
-fig.savefig(png_buf, format="png", dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
-png_buf.seek(0)
-st.download_button("📥 Télécharger le radar (PNG)", data=png_buf, file_name=f"{player_name}_radar.png", mime="image/png")
-
-# Export PDF
-fig.savefig("temp_radar.png", dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
-
-pdf = FPDF()
-pdf.add_page()
-pdf.set_font("Arial", "B", 16)
-pdf.cell(0, 10, f"{player_name} - {team}", ln=True, align="C")
-pdf.cell(0, 10, f"Saison {season} | Adversaire: {opponent}", ln=True, align="C")
-pdf.image("temp_radar.png", x=10, y=40, w=190)
-
-pdf_buf = io.BytesIO()
-pdf.output("temp_radar.pdf")
-
-with open("temp_radar.pdf", "rb") as f:
-    pdf_buf.write(f.read())
-pdf_buf.seek(0)
-
-st.download_button("📄 Télécharger le radar (PDF)", data=pdf_buf, file_name=f"{player_name}_radar.pdf", mime="application/pdf")
-
-# Nettoyage fichiers temporaires
-if os.path.exists("temp_radar.png"):
-    os.remove("temp_radar.png")
-if os.path.exists("temp_radar.pdf"):
-    os.remove("temp_radar.pdf")
+# Export JPG uniquement
+jpg_buf = io.BytesIO()
+fig.savefig(jpg_buf, format="jpg", dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
+jpg_buf.seek(0)
+st.download_button(
+    "📥 Télécharger le radar (JPG)",
+    data=jpg_buf,
+    file_name=f"{player_name}_radar.jpg",
+    mime="image/jpeg"
+)
 
 # Affichage du créateur en bas à gauche
 st.markdown(
@@ -199,3 +178,4 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
