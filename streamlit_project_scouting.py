@@ -29,7 +29,7 @@ else:
     URL = "https://raw.githubusercontent.com/andrewRowlinson/mplsoccer-assets/main/fdj_cropped.png"
     player_img = Image.open(urlopen(URL))
 
-# ---- Initialisation des groupes et métriques ----
+# ---- Initialisation des groupes ----
 group_titles = ["🎯 Attaque", "⚙️ Distribution", "🛡️ Défense"]
 group_keys = ["attaque", "distribution", "defense"]
 
@@ -39,13 +39,8 @@ default_metrics = {
     "defense": ["pAdj Pressure Regains", "pAdj Tackles Made", "pAdj Interceptions", "Recoveries", "Aerial Win %"]
 }
 
-# Initialisation dans session_state si pas encore faite
 if "grouped_metrics" not in st.session_state:
-    st.session_state.grouped_metrics = {
-        "attaque": default_metrics["attaque"].copy(),
-        "distribution": default_metrics["distribution"].copy(),
-        "defense": default_metrics["defense"].copy()
-    }
+    st.session_state.grouped_metrics = default_metrics.copy()
 
 # ---- Interface de saisie par groupe ----
 st.header("📈 Valeurs des métriques")
@@ -55,8 +50,8 @@ params = []
 for title, key in zip(group_titles, group_keys):
     st.subheader(title)
 
+    metrics_copy = list(st.session_state.grouped_metrics.get(key, []))
     metrics_to_remove = None
-    metrics_copy = list(st.session_state.grouped_metrics.get(key, []))  # conversion en liste sûre
 
     cols_del = st.columns(len(metrics_copy)*2 if metrics_copy else 1)
 
@@ -64,13 +59,15 @@ for title, key in zip(group_titles, group_keys):
         new_name = cols_del[2*i].text_input(f"{title} Métrique {i+1}", value=metric, key=f"edit_{key}_{i}")
         if new_name != metric:
             st.session_state.grouped_metrics[key][i] = new_name
-        
+
         if cols_del[2*i+1].button("❌", key=f"del_{key}_{i}"):
             metrics_to_remove = i
+            break  # On stoppe la boucle pour ne pas supprimer plusieurs métriques en même temps
 
     if metrics_to_remove is not None:
         st.session_state.grouped_metrics[key].pop(metrics_to_remove)
         st.experimental_rerun()
+        st.stop()
 
     cols_val = st.columns(3)
     for i, metric in enumerate(st.session_state.grouped_metrics[key]):
@@ -93,6 +90,7 @@ for title, key in zip(group_titles, group_keys):
         if nm and nm not in all_metrics:
             st.session_state.grouped_metrics[key].append(nm)
             st.experimental_rerun()
+            st.stop()
 
 if len(params) == 0:
     st.warning("Ajoute au moins une métrique pour générer le radar.")
@@ -122,7 +120,7 @@ baker = PyPizza(
 
 fig, ax = baker.make_pizza(
     values,
-    figsize=(8, 10),
+    figsize=(8, 10),  # plus haut pour espace
     color_blank_space="same",
     slice_colors=slice_colors,
     value_colors=text_colors,
@@ -136,7 +134,7 @@ fig, ax = baker.make_pizza(
     )
 )
 
-fig.subplots_adjust(top=0.85)
+fig.subplots_adjust(top=0.85)  # décale le haut pour espace
 
 # Titres et texte en haut
 fig.text(0.515, 0.97, f"{player_name} - {team}", size=16,
@@ -144,7 +142,7 @@ fig.text(0.515, 0.97, f"{player_name} - {team}", size=16,
 fig.text(0.515, 0.940, f"Statistique Générale | Saison {season} | Vs: {opponent}",
          size=13, ha="center", fontproperties=font_bold.prop, color="#AAAAAA")
 
-# Catégories et légendes couleurs
+# Catégories et légendes couleurs plus bas pour éviter chevauchement
 fig.text(0.320, 0.88, "Attaque", size=12,
          fontproperties=font_bold.prop, color="#009688")
 fig.text(0.475, 0.88, "Distribution", size=12,
@@ -160,7 +158,7 @@ for x, c in zip(x_positions, colors_for_rect):
                       color=c, transform=fig.transFigure, figure=fig)
     )
 
-# Image joueur
+# Image joueur plus bas
 add_image(player_img, fig, left=0.448, bottom=0.416, width=0.13, height=0.127)
 
 # Affichage Streamlit
