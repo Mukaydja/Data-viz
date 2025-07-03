@@ -24,26 +24,12 @@ def prepare_circular_image(img, size_px=200):
     output.paste(img, (0, 0), mask=mask)
     return output
 
-# --- Fonction pour faire un saut de ligne intelligent sur les noms de métriques ---
-def split_label(label, max_len=12):
-    if len(label) <= max_len:
-        return label
-    
-    # Cherche un espace avant max_len (de droite à gauche)
-    for i in range(max_len, 0, -1):
-        if label[i] == " ":
-            return label[:i] + "\n" + label[i+1:]
-    # Sinon cherche un espace après max_len (de gauche à droite)
-    for i in range(max_len, len(label)):
-        if label[i] == " ":
-            return label[:i] + "\n" + label[i+1:]
-    
-    # Pas d'espace proche, on ne coupe pas au milieu
-    return label
+# --- SIDEBAR : Mode affichage ---
+mode_display = st.sidebar.radio("Mode affichage", ["Desktop", "Mobile"], index=0, key="mode_display")
 
 # --- TITRE PERSONNALISÉ ---
 st.sidebar.markdown("🌓 **Apparence**")
-theme_mode = st.sidebar.radio("Mode d'affichage", ["Clair", "Sombre"], index=1)
+theme_mode = st.sidebar.radio("Mode d'affichage", ["Clair", "Sombre"], index=1, key="theme_mode")
 
 # Thème
 if theme_mode == "Clair":
@@ -79,10 +65,9 @@ else:
     URL = "https://raw.githubusercontent.com/andrewRowlinson/mplsoccer-assets/main/fdj_cropped.png"
     player_img = Image.open(urlopen(URL))
 
-# Préparation image circulaire adaptée
 player_img_circular = prepare_circular_image(player_img, size_px=200)
 
-# --- MÉTRIQUES FIXES PAR GROUPE ---
+# --- MÉTRIQUES FIXES ---
 grouped_metrics = {
     "attaque": [
         "Non-Penalty Goals", "npxG", "xA", "Shot Creating Actions", "Touches in Box", "Penalty Area Entries"
@@ -100,17 +85,25 @@ params = []
 values = []
 
 st.header("📈 Valeurs des métriques")
+
+# Choix colonnes selon mode
+if mode_display == "Desktop":
+    nb_cols = 3
+else:  # Mobile = 1 colonne
+    nb_cols = 1
+
 for title, key in zip(group_titles, group_keys):
     st.subheader(title)
-    cols = st.columns(3)
+    cols = st.columns(nb_cols)
     for i, metric in enumerate(grouped_metrics[key]):
-        metric_name = cols[i % 3].text_input(f"{metric}", value=metric, key=f"{key}_metric_{i}")
-        val = cols[i % 3].slider(f"Valeur {i+1}", 0.0, 100.0, 50.0, 1.0, key=f"{key}_val_{i}")
-        # Appliquer saut de ligne intelligent sur le nom pour l'affichage
-        params.append(split_label(metric_name))
+        idx = i % nb_cols
+        with cols[idx]:
+            metric_name = st.text_input(f"{metric}", value=metric, key=f"{key}_metric_{i}")
+            val = st.slider(f"Valeur {i+1}", 0.0, 100.0, 50.0, 1.0, key=f"{key}_val_{i}")
+        params.append(metric_name)
         values.append(val)
 
-# --- COULEURS SLICE ---
+# --- COULEURS ---
 slice_colors = (
     [group_colors["attaque"]] * 6 +
     [group_colors["distribution"]] * 6 +
@@ -150,7 +143,7 @@ fig.subplots_adjust(top=0.85)
 fig.text(0.515, 0.97, f"{player_name} - {team}", size=16, ha="center", fontproperties=font_bold.prop, color=text_color)
 fig.text(0.515, 0.94, f"Statistiques Radar | Saison {season} | Vs: {opponent}", size=13, ha="center", fontproperties=font_bold.prop, color="#888888")
 
-# Légendes de groupes
+# Légendes
 group_names = ["Attaque", "Distribution", "Défense"]
 positions = [0.30, 0.475, 0.64]
 for gname, pos, gkey in zip(group_names, positions, group_keys):
@@ -160,19 +153,17 @@ for gname, pos, gkey in zip(group_names, positions, group_keys):
                       color=group_colors[gkey], transform=fig.transFigure, figure=fig)
     )
 
-# Ajout de l'image circulaire du joueur dans le radar
 add_image(player_img_circular, fig, left=0.448, bottom=0.416, width=0.13, height=0.127)
 
-# --- AFFICHAGE ---
 st.pyplot(fig)
 
-# --- TÉLÉCHARGEMENT PNG ---
+# Téléchargement PNG
 png_buf = io.BytesIO()
 fig.savefig(png_buf, format="png", dpi=300, bbox_inches="tight", facecolor=fig.get_facecolor())
 png_buf.seek(0)
 st.download_button("📥 Télécharger le radar (PNG)", data=png_buf, file_name=f"{player_name}_radar.png", mime="image/png")
 
-# --- CRÉDIT ---
+# Crédit
 st.markdown(
     """
     <div style='text-align: center; margin-top: 30px; font-size: 13px; color: gray;'>
