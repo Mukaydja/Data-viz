@@ -29,7 +29,7 @@ else:
     URL = "https://raw.githubusercontent.com/andrewRowlinson/mplsoccer-assets/main/fdj_cropped.png"
     player_img = Image.open(urlopen(URL))
 
-# ---- Initialisation des groupes ----
+# ---- Initialisation des groupes et métriques ----
 group_titles = ["🎯 Attaque", "⚙️ Distribution", "🛡️ Défense"]
 group_keys = ["attaque", "distribution", "defense"]
 
@@ -39,8 +39,13 @@ default_metrics = {
     "defense": ["pAdj Pressure Regains", "pAdj Tackles Made", "pAdj Interceptions", "Recoveries", "Aerial Win %"]
 }
 
+# Initialisation dans session_state si pas encore faite
 if "grouped_metrics" not in st.session_state:
-    st.session_state.grouped_metrics = default_metrics.copy()
+    st.session_state.grouped_metrics = {
+        "attaque": default_metrics["attaque"].copy(),
+        "distribution": default_metrics["distribution"].copy(),
+        "defense": default_metrics["defense"].copy()
+    }
 
 # ---- Interface de saisie par groupe ----
 st.header("📈 Valeurs des métriques")
@@ -51,7 +56,8 @@ for title, key in zip(group_titles, group_keys):
     st.subheader(title)
 
     metrics_to_remove = None
-    metrics_copy = st.session_state.grouped_metrics.get(key, []).copy()
+    metrics_copy = list(st.session_state.grouped_metrics.get(key, []))  # conversion en liste sûre
+
     cols_del = st.columns(len(metrics_copy)*2 if metrics_copy else 1)
 
     for i, metric in enumerate(metrics_copy):
@@ -116,7 +122,7 @@ baker = PyPizza(
 
 fig, ax = baker.make_pizza(
     values,
-    figsize=(8, 10),  # plus haut pour espace
+    figsize=(8, 10),
     color_blank_space="same",
     slice_colors=slice_colors,
     value_colors=text_colors,
@@ -130,17 +136,15 @@ fig, ax = baker.make_pizza(
     )
 )
 
-fig.subplots_adjust(top=0.85)  # décale le haut pour espace
+fig.subplots_adjust(top=0.85)
 
 # Titres et texte en haut
 fig.text(0.515, 0.97, f"{player_name} - {team}", size=16,
          ha="center", fontproperties=font_bold.prop, color="#FFFFFF")
 fig.text(0.515, 0.940, f"Statistique Générale | Saison {season} | Vs: {opponent}",
          size=13, ha="center", fontproperties=font_bold.prop, color="#AAAAAA")
-fig.text(0.99, 0.02, "Amine Abbes",
-         size=9, fontproperties=font_italic.prop, color="#AAAAAA", ha="right")
 
-# Catégories et légendes couleurs plus bas pour éviter chevauchement
+# Catégories et légendes couleurs
 fig.text(0.320, 0.88, "Attaque", size=12,
          fontproperties=font_bold.prop, color="#009688")
 fig.text(0.475, 0.88, "Distribution", size=12,
@@ -156,7 +160,7 @@ for x, c in zip(x_positions, colors_for_rect):
                       color=c, transform=fig.transFigure, figure=fig)
     )
 
-# Image joueur plus bas
+# Image joueur
 add_image(player_img, fig, left=0.448, bottom=0.416, width=0.13, height=0.127)
 
 # Affichage Streamlit
